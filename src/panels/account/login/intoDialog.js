@@ -59,6 +59,28 @@ export const IntoDialog = ({ dialogRef }) => {
                             <div className='fz17'>{I18n.t('account.privateKeyImport')}</div>
                         </div>
                     )}
+                    {curNode?.type == 2 && (
+                        <div
+                            onClick={() => {
+                                hide()
+                                let url = window.location.href
+                                url = `${url.split('#')[0]}#/ledger/test?isImport=1`
+                                if (
+                                    window.chrome?.tabs &&
+                                    window.chrome.extension.getViews({ type: 'popup' }).length > 0
+                                ) {
+                                    window.chrome.tabs.create({ url })
+                                } else {
+                                    Base.push('/ledger/test', {
+                                        isImport: 1
+                                    })
+                                }
+                            }}
+                            style={{ height: 72 }}
+                            className='pv24 flex c border-t press'>
+                            <div className='fz18'>导入ledger硬件钱包</div>
+                        </div>
+                    )}
                 </div>
             </div>
         </Mask>

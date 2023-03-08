@@ -1,6 +1,6 @@
 {
     "name": "tangle-pay-chrome",
-    "version": "1.5.1",
+    "version": "1.5.4",
     "private": true,
     "homepage": "./",
     "dependencies": {
@@ -13,6 +13,10 @@
         "@iota/unit-converter": "^1.0.0-beta.30",
         "@iota/util.js": "^1.8.6",
         "@iota/util.js-next": "npm:@iota/util.js@next",
+        "@ledgerhq/hw-app-eth": "^6.32.0",
+        "@ledgerhq/hw-transport-web-ble": "^6.27.12",
+        "@ledgerhq/hw-transport-webhid": "^6.27.12",
+        "@ledgerhq/hw-transport-webusb": "^6.27.12",
         "antd-mobile": "5.0.0-beta.18",
         "antd-mobile-icons": "^0.2.2",
         "bignumber.js": "^9.0.1",
@@ -21,6 +25,7 @@
         "eth-sig-util": "^3.0.1",
         "ethereumjs-util": "^7.1.4",
         "ethereumjs-wallet": "^1.0.2",
+        "ethers": "5.6.9",
         "formik": "^2.2.9",
         "i18next": "^21.3.2",
         "i18next-browser-languagedetector": "^6.1.2",
@@ -56,6 +61,9 @@
         "extends": [
             "react-app",
             "react-app/jest"
+        ],
+        "ignorePatterns": [
+            "hw-app-iota.js"
         ]
     },
     "browserslist": {
