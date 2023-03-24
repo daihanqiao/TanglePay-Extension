@@ -34,9 +34,16 @@ export const AccountHardwareInto = () => {
                     onSubmit={async (values) => {
                         try {
                             const curNodeId = IotaSDK.curNode?.id
-                            if (IotaSDK.checkIota(curNodeId)) {
+                            const isIota = IotaSDK.checkIota(curNodeId)
+                            const isShimmer = IotaSDK.checkSMR(curNodeId)
+                            if (isIota || isShimmer) {
                                 Toast.showLoading()
-                                const { address, path } = await IotaSDK.getHardwareAddressInIota()
+                                const [{ address, path }] = await IotaSDK.getHardwareAddressInIota(
+                                    curNodeId,
+                                    0,
+                                    true,
+                                    1
+                                )
                                 const info = await IotaSDK.importHardware({
                                     address: address,
                                     name: values.name,

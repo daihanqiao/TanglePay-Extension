@@ -95,6 +95,30 @@ export const AssetsSend = () => {
                     validateOnMount={false}
                     validationSchema={Yup.object().shape(schema)}
                     onSubmit={async (values) => {
+                        // const [appIota, AppIota1, CCC, DDD] = await IotaSDK.getHardwareIotaSign(curWallet.nodeId, 0)
+                        // window.AppIota1 = AppIota1
+                        // window.appIota = appIota
+                        // window.IotaSDK = CCC
+                        // window.IotaObj = DDD
+                        // window.Buffer = Buffer
+                        // const path = curWallet.path
+                        // console.log(path)
+                        // const arr = AppIota1._validatePath(path)
+                        // console.log(arr, '___________________')
+                        // const res2 = await IotaSDK.getHardwareAddressInIota(0, false)
+                        // const res2 = await appIota._setAccount(arr[2], { id: 'iota' })
+                        // console.log(res2, '_____')
+                        // const res3 = await appIota._generateAddress(arr[3], arr[4], 5)
+                        // console.log(res3, '----------')
+                        // const resxx = await appIota._getDataBufferState()
+                        // await appIota._clearDataBuffer()
+                        // console.log(resxx)
+                        // // const res1 = await appIota._prepareSigning(0, 0, arr[4], arr[3])
+                        // const res1 = await appIota._prepareSigning(1, 4, arr[4], arr[3])
+                        // console.log(res1, '++++')
+                        // const res = await appIota._signSingle()
+                        // console.log(res)
+
                         let { password, amount, receiver } = values
                         if (!isLedger) {
                             const isPassword = await IotaSDK.checkPassword(curWallet.seed, password)

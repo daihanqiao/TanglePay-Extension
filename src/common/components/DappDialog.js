@@ -301,19 +301,27 @@ export const DappDialog = () => {
                                 Toast.showLoading()
                                 unit = unit || 'wei'
                                 let curToken = IotaSDK.curNode?.token
+                                console.log(value)
                                 sendAmount = Number(new BigNumber(value))
+                                console.log(sendAmount)
                                 showValue = IotaSDK.client.utils.fromWei(String(sendAmount), 'ether')
+                                console.log(showValue)
 
                                 let [gasPrice, gasLimit] = await Promise.all([
                                     IotaSDK.client.eth.getGasPrice(),
                                     IotaSDK.getDefaultGasLimit(curWallet.address, taggedData ? address : '')
                                 ])
+                                console.log(gasPrice, gasLimit)
                                 const gasPriceWei = gasPrice
                                 gasLimit = gasLimit || 21000
                                 let totalWei = new BigNumber(gasPrice).times(gasLimit)
+                                console.log(totalWei)
+                                totalWei = IotaSDK.getNumberStr(totalWei)
                                 const totalEth = IotaSDK.client.utils.fromWei(totalWei.valueOf(), 'ether')
+                                console.log(totalEth)
                                 gasPrice = IotaSDK.client.utils.fromWei(gasPrice, 'gwei')
                                 const total = IotaSDK.client.utils.fromWei(totalWei.valueOf(), 'gwei')
+                                console.log(total, '---')
                                 setGasInfo({
                                     gasLimit,
                                     gasPrice,
@@ -369,6 +377,7 @@ export const DappDialog = () => {
                                         curToken =
                                             (await web3Contract.methods.symbol().call()) || IotaSDK.curNode?.token
                                         const decimals = await web3Contract.methods.decimals().call()
+                                        console.log(decimals, '=============================')
                                         if (isErc20) {
                                             IotaSDK.importContract(contract, curToken)
                                         }

@@ -4359,9 +4359,17 @@
      * @param taggedData Optional tagged data to associate with the transaction.
      * @param taggedData.tag Optional tag.
      * @param taggedData.data Optional data.
+     * @param signatureFunc signature by hardware
      * @returns The id of the block created and the remainder address if one was needed.
      */
-    async function sendAdvanced(client, inputsAndSignatureKeyPairs, outputs, taggedData) {
+    async function sendAdvanced(
+        client,
+        inputsAndSignatureKeyPairs,
+        outputs,
+        taggedData,
+        signatureFunc,
+        getHardwareBip32Path
+    ) {
         const [isCanSend, tips] = verifySMRSendParams(inputsAndSignatureKeyPairs, outputs)
         if (!isCanSend) {
             throw tips
@@ -4372,7 +4380,9 @@
             protocolInfo.networkId,
             inputsAndSignatureKeyPairs,
             outputs,
-            taggedData
+            taggedData,
+            signatureFunc,
+            getHardwareBip32Path
         )
         const block = {
             protocolVersion: DEFAULT_PROTOCOL_VERSION,
@@ -4394,9 +4404,17 @@
      * @param taggedData Optional tagged data to associate with the transaction.
      * @param taggedData.tag Optional tag.
      * @param taggedData.data Optional index data.
+     * @param ledger sign
      * @returns The transaction payload.
      */
-    function buildTransactionPayload(networkId, inputsAndSignatureKeyPairs, outputs, taggedData) {
+    function buildTransactionPayload(
+        networkId,
+        inputsAndSignatureKeyPairs,
+        outputs,
+        taggedData,
+        signatureFunc,
+        getHardwareBip32Path
+    ) {
         if (!inputsAndSignatureKeyPairs || inputsAndSignatureKeyPairs.length === 0) {
             throw new Error('You must specify some inputs')
         }
@@ -4459,6 +4477,7 @@
                 throw new Error(`Unrecognized output address type ${output.addressType}`)
             }
         }
+        console.log(signatureFunc, 'inputsAndSignatureKeyPairs=', inputsAndSignatureKeyPairs)
         const inputsAndSignatureKeyPairsSerialized = inputsAndSignatureKeyPairs.map((i) => {
             const writeStreamId = new util_js.WriteStream()
             writeStreamId.writeFixedHex('transactionId', TRANSACTION_ID_LENGTH, i.input.transactionId)
@@ -4476,10 +4495,11 @@
             inputsCommitmentHasher.update(crypto_js.Blake2b.sum256(input.consumingOutputBytes))
         }
         const inputsCommitment = util_js.Converter.bytesToHex(inputsCommitmentHasher.final(), true)
+        const inputs = inputsAndSignatureKeyPairsSerialized.map((i) => i.input)
         const transactionEssence = {
             type: TRANSACTION_ESSENCE_TYPE,
             networkId,
-            inputs: inputsAndSignatureKeyPairsSerialized.map((i) => i.input),
+            inputs,
             inputsCommitment,
             outputs: outputsWithSerialization.map((o) => o.output),
             payload:
@@ -4491,15 +4511,38 @@
                       }
                     : undefined
         }
+        console.log('transactionEssence=', transactionEssence)
         const binaryEssence = new util_js.WriteStream()
         serializeTransactionEssence(binaryEssence, transactionEssence)
+        if (getHardwareBip32Path) {
+            const pathArr = getHardwareBip32Path()
+            for (let i = 0; i < inputs.length; i++) {
+                console.log(pathArr, '-----')
+                binaryEssence.writeUInt32('bip32_index', pathArr[3])
+                binaryEssence.writeUInt32('bip32_change', pathArr[4])
+            }
+        }
+        console.log(binaryEssence, '---------------------------------')
+
         const essenceFinal = binaryEssence.finalBytes()
+        console.log(essenceFinal)
         const essenceHash = crypto_js.Blake2b.sum256(essenceFinal)
+        console.log(essenceHash)
+        const localSignatureFunc = (input, essenceHash) => {
+            return util_js.Converter.bytesToHex(
+                crypto_js.Ed25519.sign(input.addressKeyPair.privateKey, essenceHash),
+                true
+            )
+        }
         // Create the unlocks
         const unlocks = []
         const addressToUnlock = {}
+        console.log('xxxx', essenceHash)
         for (const input of inputsAndSignatureKeyPairsSerialized) {
-            const hexInputAddressPublic = util_js.Converter.bytesToHex(input.addressKeyPair.publicKey, true)
+            let hexInputAddressPublic = ''
+            if (input.addressKeyPair?.publicKey) {
+                hexInputAddressPublic = util_js.Converter.bytesToHex(input.addressKeyPair?.publicKey || '', true)
+            }
             if (addressToUnlock[hexInputAddressPublic]) {
                 unlocks.push({
                     type: REFERENCE_UNLOCK_TYPE,
@@ -4511,10 +4554,7 @@
                     signature: {
                         type: ED25519_SIGNATURE_TYPE,
                         publicKey: hexInputAddressPublic,
-                        signature: util_js.Converter.bytesToHex(
-                            crypto_js.Ed25519.sign(input.addressKeyPair.privateKey, essenceHash),
-                            true
-                        )
+                        signature: signatureFunc ? signatureFunc(essenceFinal) : localSignatureFunc(input, essenceHash)
                     }
                 })
                 addressToUnlock[hexInputAddressPublic] = {
@@ -4580,9 +4620,21 @@
      * @param addressOptions Optional address configuration for balance address lookups.
      * @param addressOptions.startIndex The start index for the wallet count address, defaults to 0.
      * @param addressOptions.zeroCount The number of addresses with 0 balance during lookup before aborting.
+     * @param genAddressFunc get address from hardware
+     * @param signatureFunc signature by hardware
      * @returns The id of the block created and the contructed block.
      */
-    async function sendMultiple(client, seed, accountIndex, outputs, taggedData, addressOptions) {
+    async function sendMultiple(
+        client,
+        seed,
+        accountIndex,
+        outputs,
+        taggedData,
+        addressOptions,
+        genAddressFunc,
+        signatureFunc,
+        getHardwareBip32Path
+    ) {
         var _a
         const localClient = typeof client === 'string' ? new SingleNodeClient(client) : client
         const protocolInfo = await localClient.protocolInfo()
@@ -4612,7 +4664,10 @@
             generateBip44Address,
             hexOutputs,
             taggedData,
-            addressOptions === null || addressOptions === void 0 ? void 0 : addressOptions.zeroCount
+            addressOptions === null || addressOptions === void 0 ? void 0 : addressOptions.zeroCount,
+            genAddressFunc,
+            signatureFunc,
+            getHardwareBip32Path
         )
     }
     /**
@@ -4665,6 +4720,8 @@
      * @param taggedData.tag Optional tag.
      * @param taggedData.data Optional data.
      * @param zeroCount The number of addresses with 0 balance during lookup before aborting.
+     * @param genAddressFunc get address from hardware
+     * @param signatureFunc signature by hardware
      * @returns The id of the block created and the contructed block.
      */
     async function sendWithAddressGenerator(
@@ -4674,7 +4731,10 @@
         nextAddressPath,
         outputs,
         taggedData,
-        zeroCount
+        zeroCount,
+        genAddressFunc,
+        signatureFunc,
+        getHardwareBip32Path
     ) {
         const inputsAndKeys = await calculateInputs(
             client,
@@ -4682,7 +4742,8 @@
             initialAddressState,
             nextAddressPath,
             outputs,
-            zeroCount
+            zeroCount,
+            genAddressFunc
         )
 
         const [isCanSend, tips] = verifySMRSendParams(inputsAndKeys, outputs)
@@ -4690,7 +4751,14 @@
             throw tips
         }
 
-        const response = await sendAdvanced(client, inputsAndKeys, outputs, taggedData)
+        const response = await sendAdvanced(
+            client,
+            inputsAndKeys,
+            outputs,
+            taggedData,
+            signatureFunc,
+            getHardwareBip32Path
+        )
         return {
             blockId: response.blockId,
             block: response.block
@@ -4706,11 +4774,18 @@
      * @param zeroCount Abort when the number of zero balances is exceeded.
      * @returns The id of the block created and the contructed block.
      */
-    async function calculateInputs(client, seed, initialAddressState, nextAddressPath, outputs, zeroCount = 5) {
+    async function calculateInputs(
+        client,
+        seed,
+        initialAddressState,
+        nextAddressPath,
+        outputs,
+        zeroCount = 5,
+        genAddressFunc
+    ) {
         const localClient = typeof client === 'string' ? new SingleNodeClient(client) : client
         const protocolInfo = await localClient.protocolInfo()
         const clientInfo = await localClient.info()
-        console.log(clientInfo, protocolInfo)
         let requiredBalance = bigInt__default['default'](0)
         for (const output of outputs) {
             requiredBalance = requiredBalance.plus(output.amount)
@@ -4721,16 +4796,23 @@
         let zeroBalance = 0
         let minBalance = 0
         do {
-            const path = nextAddressPath(initialAddressState)
-            const addressSeed = seed.generateSeedFromPath(new crypto_js.Bip32Path(path))
-            const addressKeyPair = addressSeed.keyPair()
-            const ed25519Address = new Ed25519Address(addressKeyPair.publicKey)
-            const addressBytes = ed25519Address.toAddress()
+            let addressBech32 = ''
+            let addressKeyPair = null
             const indexerPlugin = new IndexerPluginClient(client)
-            const addressBech32 = Bech32Helper.toBech32(ED25519_ADDRESS_TYPE, addressBytes, protocolInfo.bech32Hrp)
+            if (!genAddressFunc) {
+                const path = nextAddressPath(initialAddressState)
+                const addressSeed = seed.generateSeedFromPath(new crypto_js.Bip32Path(path))
+                addressKeyPair = addressSeed.keyPair()
+                const ed25519Address = new Ed25519Address(addressKeyPair.publicKey)
+                const addressBytes = ed25519Address.toAddress()
+                addressBech32 = Bech32Helper.toBech32(ED25519_ADDRESS_TYPE, addressBytes, protocolInfo.bech32Hrp)
+            } else {
+                addressBech32 = await genAddressFunc(initialAddressState.addressIndex)
+            }
             const addressOutputIds = await indexerPlugin.outputs({
                 addressBech32
             })
+            console.log(addressBech32, addressOutputIds)
 
             if (!minBalance) {
                 minBalance = TransactionHelper.getStorageDeposit(
@@ -4770,11 +4852,14 @@
                                 transactionId: addressOutput.metadata.transactionId,
                                 transactionOutputIndex: addressOutput.metadata.outputIndex
                             }
-                            inputsAndSignatureKeyPairs.push({
+                            const inputData = {
                                 input,
-                                addressKeyPair,
                                 consumingOutput: addressOutput.output
-                            })
+                            }
+                            if (addressKeyPair) {
+                                inputData.addressKeyPair = addressKeyPair
+                            }
+                            inputsAndSignatureKeyPairs.push(inputData)
                             if (consumedBalance >= requiredBalance) {
                                 // We didn't use all the balance from the last input
                                 // so return the rest to the same address.
