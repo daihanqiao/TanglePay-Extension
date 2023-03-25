@@ -4376,7 +4376,7 @@
         }
         const localClient = typeof client === 'string' ? new SingleNodeClient(client) : client
         const protocolInfo = await localClient.protocolInfo()
-        const transactionPayload = buildTransactionPayload(
+        const transactionPayload = await buildTransactionPayload(
             protocolInfo.networkId,
             inputsAndSignatureKeyPairs,
             outputs,
@@ -4407,7 +4407,20 @@
      * @param ledger sign
      * @returns The transaction payload.
      */
-    function buildTransactionPayload(
+    // signatureFunc = async (essenceHash) => {
+    //     const transport = await this.getTransport()
+    //     const appIota = new AppIota(transport)
+    //     const arr = AppIota._validatePath(`2c'/1'/0'/0'/0'`)
+    //     await appIota._setAccount(arr[2], { id: 'shimmer_testnet' })
+    //     await appIota._writeDataBuffer(Buffer.from(essenceHash))
+    //     const res = await appIota._getDataBufferState()
+    //     console.log(res, '-------')
+    //     //  res = {dataLength: 0, dataType: 0, dataBlockSize: 251, dataBlockCount: 32}
+    // }
+    // getHardwareBip32Path = (path)=>{
+    //    return AppIota._validatePath(path)
+    // }
+    async function buildTransactionPayload(
         networkId,
         inputsAndSignatureKeyPairs,
         outputs,
@@ -4421,6 +4434,14 @@
         if (!outputs || outputs.length === 0) {
             throw new Error('You must specify some outputs')
         }
+        const hardwarePathList = []
+        inputsAndSignatureKeyPairs.forEach((e) => {
+            const input = e.input || {}
+            hardwarePathList.push(input.hardwarePath)
+            if (input.hasOwnProperty('hardwarePath')) {
+                delete e.input.hardwarePath
+            }
+        })
         let localTagHex
         let localDataHex
         if (taggedData === null || taggedData === void 0 ? void 0 : taggedData.tag) {
@@ -4477,7 +4498,6 @@
                 throw new Error(`Unrecognized output address type ${output.addressType}`)
             }
         }
-        console.log(signatureFunc, 'inputsAndSignatureKeyPairs=', inputsAndSignatureKeyPairs)
         const inputsAndSignatureKeyPairsSerialized = inputsAndSignatureKeyPairs.map((i) => {
             const writeStreamId = new util_js.WriteStream()
             writeStreamId.writeFixedHex('transactionId', TRANSACTION_ID_LENGTH, i.input.transactionId)
@@ -4512,22 +4532,29 @@
                     : undefined
         }
         console.log('transactionEssence=', transactionEssence)
+        // transactionEssence = {"type":1,"networkId":"1856588631910923207","inputs":[{"type":0,"transactionId":"0xbabbd76424565eebec9528117445452dd4b5e93178a477a838d0aceae35fe214","transactionOutputIndex":0}],"inputsCommitment":"0xd6b0492de2f6680699a2809be48a04a9fdd11fc19c8c6d210f5053f0cc48a667","outputs":[{"type":3,"amount":"1000000","nativeTokens":[],"unlockConditions":[{"type":0,"address":{"type":0,"pubKeyHash":"0x3399dbee0d398c6c63b5f88fb7179f1628354fa5faddb77f5c740607a728704b"}}],"features":[]},{"type":3,"amount":"99000000","nativeTokens":[],"unlockConditions":[{"type":0,"address":{"type":0,"pubKeyHash":"0xf032c20ef21a394770b4fce34669064e0ceafdbb2fe47dd7a015bc654d300e4e"}}],"features":[]}]}
         const binaryEssence = new util_js.WriteStream()
         serializeTransactionEssence(binaryEssence, transactionEssence)
+        console.log(JSON.parse(JSON.stringify(binaryEssence)))
+        // binaryEssence._storage: Uint8Array(4096)
+        // binaryEssence._writeIndex: 176
         if (getHardwareBip32Path) {
-            const pathArr = getHardwareBip32Path()
             for (let i = 0; i < inputs.length; i++) {
+                const pathArr = getHardwareBip32Path(hardwarePathList[i])
                 console.log(pathArr, '-----')
                 binaryEssence.writeUInt32('bip32_index', pathArr[3])
                 binaryEssence.writeUInt32('bip32_change', pathArr[4])
             }
         }
         console.log(binaryEssence, '---------------------------------')
+        // binaryEssence._storage: Uint8Array(4096)
+        // binaryEssence._writeIndex: 184
 
         const essenceFinal = binaryEssence.finalBytes()
         console.log(essenceFinal)
+        // essenceFinal = Uint8Array(184)
+        // JSON.stringify(essenceFinal) = {"0":1,"1":199,"2":59,"3":20,"4":43,"5":134,"6":237,"7":195,"8":25,"9":1,"10":0,"11":0,"12":186,"13":187,"14":215,"15":100,"16":36,"17":86,"18":94,"19":235,"20":236,"21":149,"22":40,"23":17,"24":116,"25":69,"26":69,"27":45,"28":212,"29":181,"30":233,"31":49,"32":120,"33":164,"34":119,"35":168,"36":56,"37":208,"38":172,"39":234,"40":227,"41":95,"42":226,"43":20,"44":0,"45":0,"46":214,"47":176,"48":73,"49":45,"50":226,"51":246,"52":104,"53":6,"54":153,"55":162,"56":128,"57":155,"58":228,"59":138,"60":4,"61":169,"62":253,"63":209,"64":31,"65":193,"66":156,"67":140,"68":109,"69":33,"70":15,"71":80,"72":83,"73":240,"74":204,"75":72,"76":166,"77":103,"78":2,"79":0,"80":3,"81":64,"82":66,"83":15,"84":0,"85":0,"86":0,"87":0,"88":0,"89":0,"90":1,"91":0,"92":0,"93":51,"94":153,"95":219,"96":238,"97":13,"98":57,"99":140,"100":108,"101":99,"102":181,"103":248,"104":143,"105":183,"106":23,"107":159,"108":22,"109":40,"110":53,"111":79,"112":165,"113":250,"114":221,"115":183,"116":127,"117":92,"118":116,"119":6,"120":7,"121":167,"122":40,"123":112,"124":75,"125":0,"126":3,"127":192,"128":158,"129":230,"130":5,"131":0,"132":0,"133":0,"134":0,"135":0,"136":1,"137":0,"138":0,"139":240,"140":50,"141":194,"142":14,"143":242,"144":26,"145":57,"146":71,"147":112,"148":180,"149":252,"150":227,"151":70,"152":105,"153":6,"154":78,"155":12,"156":234,"157":253,"158":187,"159":47,"160":228,"161":125,"162":215,"163":160,"164":21,"165":188,"166":101,"167":77,"168":48,"169":14,"170":78,"171":0,"172":0,"173":0,"174":0,"175":0,"176":0,"177":0,"178":0,"179":128,"180":0,"181":0,"182":0,"183":128}
         const essenceHash = crypto_js.Blake2b.sum256(essenceFinal)
-        console.log(essenceHash)
         const localSignatureFunc = (input, essenceHash) => {
             return util_js.Converter.bytesToHex(
                 crypto_js.Ed25519.sign(input.addressKeyPair.privateKey, essenceHash),
@@ -4537,7 +4564,10 @@
         // Create the unlocks
         const unlocks = []
         const addressToUnlock = {}
-        console.log('xxxx', essenceHash)
+        let hardwareSignature = ''
+        if (signatureFunc) {
+            hardwareSignature = await signatureFunc(essenceFinal)
+        }
         for (const input of inputsAndSignatureKeyPairsSerialized) {
             let hexInputAddressPublic = ''
             if (input.addressKeyPair?.publicKey) {
@@ -4554,7 +4584,7 @@
                     signature: {
                         type: ED25519_SIGNATURE_TYPE,
                         publicKey: hexInputAddressPublic,
-                        signature: signatureFunc ? signatureFunc(essenceFinal) : localSignatureFunc(input, essenceHash)
+                        signature: signatureFunc ? hardwareSignature : localSignatureFunc(input, essenceHash)
                     }
                 })
                 addressToUnlock[hexInputAddressPublic] = {
@@ -4797,6 +4827,7 @@
         let minBalance = 0
         do {
             let addressBech32 = ''
+            let hardwarePath = ''
             let addressKeyPair = null
             const indexerPlugin = new IndexerPluginClient(client)
             if (!genAddressFunc) {
@@ -4807,7 +4838,9 @@
                 const addressBytes = ed25519Address.toAddress()
                 addressBech32 = Bech32Helper.toBech32(ED25519_ADDRESS_TYPE, addressBytes, protocolInfo.bech32Hrp)
             } else {
-                addressBech32 = await genAddressFunc(initialAddressState.addressIndex)
+                const hardwareAddressRes = await genAddressFunc(initialAddressState.addressIndex)
+                addressBech32 = hardwareAddressRes.address
+                hardwarePath = hardwareAddressRes.path
             }
             const addressOutputIds = await indexerPlugin.outputs({
                 addressBech32
@@ -4850,7 +4883,8 @@
                             const input = {
                                 type: UTXO_INPUT_TYPE,
                                 transactionId: addressOutput.metadata.transactionId,
-                                transactionOutputIndex: addressOutput.metadata.outputIndex
+                                transactionOutputIndex: addressOutput.metadata.outputIndex,
+                                hardwarePath
                             }
                             const inputData = {
                                 input,
@@ -4860,7 +4894,8 @@
                                 inputData.addressKeyPair = addressKeyPair
                             }
                             inputsAndSignatureKeyPairs.push(inputData)
-                            if (consumedBalance >= requiredBalance) {
+                            const isGreaterOrEquals = consumedBalance.greaterOrEquals(requiredBalance)
+                            if (isGreaterOrEquals) {
                                 // We didn't use all the balance from the last input
                                 // so return the rest to the same address.
                                 if (
@@ -4882,10 +4917,8 @@
                                         })
                                     }
                                 }
-                                if (
-                                    consumedBalance == requiredBalance ||
-                                    consumedBalance.minus(requiredBalance).greaterOrEquals(minBalance)
-                                ) {
+                                const minus = consumedBalance.minus(requiredBalance)
+                                if (minus.equals(0) || minus.greaterOrEquals(minBalance)) {
                                     finished = true
                                 }
                             }
