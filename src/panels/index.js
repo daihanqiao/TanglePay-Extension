@@ -37,7 +37,12 @@ import { NftDetail } from './assets/nftDetail/index'
 import { ImportToken } from './assets/importToken/index'
 import { TestIndex } from './test/index'
 import { TestSendSMR } from './test/testSendSMR'
+import { TestSendEVM } from './test/testSendEvm'
 export const panelsList = [
+    {
+        path: 'test/testSendEvm',
+        component: TestSendEVM
+    },
     {
         path: 'test/testSendSMR',
         component: TestSendSMR
