@@ -32,6 +32,7 @@ export const AssetsSend = () => {
     const nftId = params?.nftId
     const nftImg = params?.nftImg
     currency = currency || assetsList[0]?.name
+    console.log(assetsList)
     const form = useRef()
     const [curWallet] = useGetNodeWallet()
     let assets = assetsList.find((e) => e.name === currency) || {}

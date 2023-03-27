@@ -35,7 +35,17 @@ import { AssetsTradingList } from './assets/trading/list'
 import { TokenDetail } from './assets/tokenDetail/index'
 import { NftDetail } from './assets/nftDetail/index'
 import { ImportToken } from './assets/importToken/index'
+import { TestIndex } from './test/index'
+import { TestSendSMR } from './test/testSendSMR'
 export const panelsList = [
+    {
+        path: 'test/testSendSMR',
+        component: TestSendSMR
+    },
+    {
+        path: 'test/index',
+        component: TestIndex
+    },
     {
         path: 'assets/importToken',
         component: ImportToken
