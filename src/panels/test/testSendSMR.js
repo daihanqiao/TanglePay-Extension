@@ -161,23 +161,159 @@ export const TestSendSMR = () => {
             </div> */}
             <Button
                 onClick={async () => {
-                    let i = 1
-                    for (const item of importList) {
-                        const receiver = item['地址']
-                        let decimal = Math.pow(10, IotaSDK.curNode.decimal)
-                        let sendAmount = Number(BigNumber(amount).times(decimal))
-                        // 0x0868d840951ff6669bb05a6d1c9d1dfb1884f76892c1dd093a7646fbb4bfb7d96c0100000000
-                        await IotaSDK.send({ ...curWallet, password }, receiver, sendAmount, {
-                            tokenId,
-                            decimal
-                        })
+                    const { seed, address } = curWallet;
+                    const baseSeed = IotaSDK.getSeed(seed, password);
+                    const balanceRes = await IotaSDK.IotaObj.addressBalance(IotaSDK.client, address)
+                    const balance = BigNumber(Number(balanceRes.available));
+                    // let decimal = Math.pow(10, IotaSDK.curNode.decimal)
+                    // let decimal = 1
+                    let sendAmount = Number(BigNumber(amount).times(decimal))
+                    const addressList = importList.map(e=>e['地址']);
+                    let sendSMRAmount = new BigNumber(0)
+                    let totalSendTokenAmount = new BigNumber(0)
+                    let outputList = addressList.map(e=>{
+                        const output= {
+                            address: `0x${IotaSDK.bech32ToHex(e)}`,
+                            addressType: 0, // ED25519_ADDRESS_TYPE
+                            amount: '',
+                            type: 3, // BASIC_OUTPUT_TYPE
+                            nativeTokens: [
+                                {
+                                    id: tokenId,
+                                    amount: `0x${BigNumber(sendAmount).toString(16)}`
+                                }
+                            ],
+                            unlockConditions: [
+                                {
+                                    type: 0, // ADDRESS_UNLOCK_CONDITION_TYPE
+                                    address: IotaSDK.IotaObj.Bech32Helper.addressFromBech32(e, IotaSDK.info.protocol.bech32Hrp)
+                                }
+                            ]
+                        }
+                        totalSendTokenAmount = totalSendTokenAmount.plus(sendAmount);
+                        const deposit = IotaSDK.IotaObj.TransactionHelper.getStorageDeposit(output, IotaSDK.info.protocol.rentStructure)
+                        output.amount = deposit.toString()
+                        sendSMRAmount = sendSMRAmount.plus(deposit.toString())
+                        return output
+                    })
+                    console.log(outputList);
 
-                        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-                        console.log(`完成第${i}个`)
-                        i++
-                        await sleep(5000)
+                    
+                    const path = IotaSDK.IotaObj.generateBip44Address({
+                        accountIndex: 0,
+                        addressIndex: 0,
+                        isInternal: false
+                    })
+                    const addressSeed = baseSeed.generateSeedFromPath(new IotaSDK.IotaObj.Bip32Path(path))
+                    const addressKeyPair = addressSeed.keyPair()
+                    const response = await IotaSDK.IndexerPluginClient.outputs({ addressBech32:address })
+                    console.log(response);
+                    const localOutputDatas = await Promise.all(response.items.map((outputId) => IotaSDK.client.output(outputId)))
+                    console.log(localOutputDatas);
+
+                    let inputsAndSignatureKeyPairs = [];
+                    for (const output of localOutputDatas) {
+                        if(!output.metadata.isSpent){
+                            if(output.output.nativeTokens?.length>0){
+                                const curTotal = new BigNumber(output.output.nativeTokens[0].amount)
+                                outputList.push(
+                                    {
+                                        address:`0x${IotaSDK.bech32ToHex(address)}`,
+                                        addressType: 0, // ED25519_ADDRESS_TYPE
+                                        amount: output.output.amount,
+                                        type: 3, // BASIC_OUTPUT_TYPE
+                                        nativeTokens: [
+                                            {
+                                                id: tokenId,
+                                                amount: `0x${curTotal.minus(totalSendTokenAmount).toString(16)}`
+                                            }
+                                        ],
+                                        unlockConditions: [
+                                            {
+                                                type: 0, // ADDRESS_UNLOCK_CONDITION_TYPE
+                                                address: IotaSDK.IotaObj.Bech32Helper.addressFromBech32(address, IotaSDK.info.protocol.bech32Hrp)
+                                            }
+                                        ]
+                                    }
+                                )
+                                inputsAndSignatureKeyPairs.push({
+                                    input:{
+                                        type: 0, // UTXO_INPUT_TYPE
+                                        transactionId: output.metadata.transactionId,
+                                        transactionOutputIndex: output.metadata.outputIndex,
+                                    },
+                                    consumingOutput: output.output,
+                                    addressKeyPair
+                                })
+                            }
+                        }
                     }
-                    console.log('全部完成')
+                    console.log(balance.valueOf());
+                    console.log(sendSMRAmount.valueOf());
+                    const sendOutput = {
+                        address: `0x${IotaSDK.bech32ToHex(address)}`,
+                        addressType: 0, // ED25519_ADDRESS_TYPE
+                        amount: String(balance.minus(sendSMRAmount).valueOf()),
+                        type: 3, // BASIC_OUTPUT_TYPE
+                        nativeTokens: [],
+                        unlockConditions: [
+                            {
+                                type: 0, // ADDRESS_UNLOCK_CONDITION_TYPE
+                                address: IotaSDK.IotaObj.Bech32Helper.addressFromBech32(address, IotaSDK.info.protocol.bech32Hrp)
+                            }
+                        ]
+                    }
+                    const outputs = [
+                        sendOutput
+                    ]
+                    const initialAddressState = {
+                        accountIndex: 0,
+                        addressIndex: 0,
+                        isInternal: false
+                    }
+                    const smrCalc = await IotaSDK.IotaObj.calculateInputs(IotaSDK.client, baseSeed, initialAddressState, IotaSDK.IotaObj.generateBip44Address, outputs, 20)
+                    inputsAndSignatureKeyPairs = [...inputsAndSignatureKeyPairs, ...smrCalc]
+                    outputList = [...outputList,sendOutput]
+                    console.log(inputsAndSignatureKeyPairs,outputList);
+                    const [isCanSend, tips] = IotaSDK.IotaObj.verifySMRSendParams(inputsAndSignatureKeyPairs,outputList)
+                    if (!isCanSend) {
+                        throw tips
+                    }
+                    const sendRes = await IotaSDK.IotaObj.sendAdvanced(
+                        IotaSDK.client,
+                        inputsAndSignatureKeyPairs,
+                        outputList,
+                        {
+                            tag: IotaSDK.IotaObj.Converter.utf8ToBytes('TanglePay'),
+                            data: undefined
+                        },
+                    )
+                    console.log(sendRes);
+                    // const ed25519Address = new IotaSDK.IotaObj.Ed25519Address(addressKeyPair.publicKey)
+                    // const addressBytes = ed25519Address.toAddress()
+                    // bech32Address = IotaObj.Bech32Helper.toBech32(0, addressBytes, this.info.protocol.bech32Hrp)
+                    // const 
+
+
+                    // let i = 1
+                    // for (const item of importList) {
+                    //     const receiver = item['地址']
+                    //     // let decimal = Math.pow(10, IotaSDK.curNode.decimal)
+                    //     let decimal = 1
+                    //     let sendAmount = Number(BigNumber(amount).times(decimal))
+                    //     console.log(sendAmount);
+                    //     // 0x0861c93f772ad52d8f78f2d7464d557097471454779c9ce00498ee87da2f473b100100000000
+                    //     await IotaSDK.send({ ...curWallet, password }, receiver, sendAmount, {
+                    //         tokenId,
+                    //         decimal
+                    //     })
+
+                    //     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+                    //     console.log(`完成第${i}个`)
+                    //     i++
+                    //     await sleep(20000)
+                    // }
+                    // console.log('全部完成')
                 }}>
                 往导入地址中转入资产
             </Button>
