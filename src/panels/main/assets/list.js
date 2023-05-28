@@ -31,10 +31,7 @@ export const CoinList = () => {
             {assetsList.map((e) => {
                 const isSMR = isSMRNode && !e.isSMRToken
                 return (
-                    <div
-                        key={`${e.name}_${e.tokenId}_${e.contract}`}
-                        style={{ height: itemH }}
-                        className='flex row ac press pr'>
+                    <div key={`${e.name}_${e.tokenId}_${e.contract}`} style={{ height: itemH }} className='flex row ac press pr'>
                         <div
                             onClick={() => {
                                 if (e.isSMRToken) {
@@ -65,9 +62,7 @@ export const CoinList = () => {
                                     e.target.style.opacity = 0
                                 }}
                             />
-                            <div
-                                className='mr10 border bgP flex c cW fw600 fz24'
-                                style={{ width: 48, height: 48, borderRadius: 48 }}>
+                            <div className='mr10 border bgP flex c cW fw600 fz24' style={{ width: 48, height: 48, borderRadius: 48 }}>
                                 {String(e.name).toLocaleUpperCase()[0]}
                             </div>
                         </div>
@@ -79,11 +74,7 @@ export const CoinList = () => {
                             className='border-b flex flex1 row ac jsb'>
                             <div className='flex ac row'>
                                 <div className='fz18 mr5'>{String(e.name).toLocaleUpperCase()}</div>
-                                {!IotaSDK.isWeb3Node &&
-                                statedAmount &&
-                                e.realBalance > 0 &&
-                                statedAmount > 0 &&
-                                !needRestake ? (
+                                {!IotaSDK.isWeb3Node && statedAmount && e.realBalance > 0 && statedAmount > 0 && !needRestake ? (
                                     <div
                                         style={{
                                             transform: 'scale(0.7)',
@@ -104,17 +95,14 @@ export const CoinList = () => {
                                     </div>
                                     {isSMR ? (
                                         <div className='fz14 tr cS'>
-                                            {I18n.t('staking.available')} {e.available}{' '}
-                                            {/* {String(e.unit || e.name).toLocaleUpperCase()} */}
+                                            {I18n.t('staking.available')} {e.available} {/* {String(e.unit || e.name).toLocaleUpperCase()} */}
                                         </div>
                                     ) : null}
                                 </div>
                             ) : (
                                 <div>
                                     <div className='fz16 tr mb8'>****</div>
-                                    {isSMR ? (
-                                        <div className='fz14 tr cS'>{I18n.t('staking.available')} ****</div>
-                                    ) : null}
+                                    {isSMR ? <div className='fz14 tr cS'>{I18n.t('staking.available')} ****</div> : null}
                                 </div>
                             )}
                         </div>
@@ -187,14 +175,8 @@ export const RewardsList = () => {
                     key={e.symbol}
                     className={`flex row ac ${e.isSMR ? 'press' : ''}`}
                     style={{ height: itemH }}>
-                    <img
-                        className='mr10 border'
-                        style={{ width: 48, height: 48, borderRadius: 48, opacity: !e.isSMR ? 0.4 : 1 }}
-                        src={Base.getIcon(e.symbol)}
-                    />
-                    <div
-                        className='flex flex1 row ac jsb border-b'
-                        style={{ height: itemH, color: e.isSMR ? '' : 'rgba(0,0,0,0.4)' }}>
+                    <img className='mr10 border' style={{ width: 48, height: 48, borderRadius: 48, opacity: !e.isSMR ? 0.4 : 1 }} src={Base.getIcon(e.symbol)} />
+                    <div className='flex flex1 row ac jsb border-b' style={{ height: itemH, color: e.isSMR ? '' : 'rgba(0,0,0,0.4)' }}>
                         <div className='fz16'>{e.unit}</div>
                         {isShowAssets ? (
                             <div>
@@ -217,9 +199,7 @@ export const ActivityList = ({ search }) => {
     const [list] = useStore('common.hisList')
     const [isShowAssets] = useStore('common.showAssets')
     const [isRequestHis] = useStore('common.isRequestHis')
-    const showList = list.filter(
-        (e) => !search || (e.address || '').toLocaleUpperCase().includes(search.toLocaleUpperCase())
-    )
+    const showList = list.filter((e) => !search || (e.address || '').toLocaleUpperCase().includes(search.toLocaleUpperCase()))
     const ListEl = useMemo(() => {
         return showList.map((e, i) => {
             const isOutto = [1, 3, 6, 8].includes(e.type)
@@ -242,8 +222,7 @@ export const ActivityList = ({ search }) => {
                                 <div className='fz17 mb5'>{I18n.t(isOutto ? 'staking.unstake' : 'staking.stake')}</div>
                             ) : (
                                 <div className='fz17 mb5'>
-                                    {isOutto ? 'To' : 'From'} :{' '}
-                                    {(e.address || '').replace(/(^.{4})(.+)(.{4}$)/, '$1...$3')}
+                                    {isOutto ? 'To' : 'From'} : {(e.address || '').replace(/(^.{4})(.+)(.{4}$)/, '$1...$3')}
                                 </div>
                             )}
 
@@ -301,11 +280,7 @@ const CollectiblesItem = ({ logo, name, link, list }) => {
                 }}
                 style={{ height: 64 }}>
                 <SvgIcon size={14} name='up' style={!isOpen && { transform: 'rotate(180deg)' }} />
-                <img
-                    style={{ width: 32, height: 32, borderRadius: 4 }}
-                    className='mr10 ml15'
-                    src={Base.getIcon(logo)}
-                />
+                <img style={{ width: 32, height: 32, borderRadius: 4 }} className='mr10 ml15' src={Base.getIcon(logo)} />
                 <div>{name}</div>
                 <div className='bgS ml10 ph5' style={{ paddingTop: 3, paddingBottom: 3, borderRadius: 4 }}>
                     <div className='fz12'>{list.length}</div>
