@@ -159,10 +159,9 @@ export const TestSendSMR = () => {
             </div> */}
             <Button
                 onClick={async () => {
-                    // const tokenId = '0x0861c93f772ad52d8f78f2d7464d557097471454779c9ce00498ee87da2f473b100100000000'
                     // SOON
+                    const tokenId = '0x0884298fe9b82504d26ddb873dbd234a344c120da3a4317d8063dbcf96d356aa9d0100000000'
                     if (tokenId) {
-                        // const tokenId = '0x0884298fe9b82504d26ddb873dbd234a344c120da3a4317d8063dbcf96d356aa9d0100000000'
                         const { seed, address } = curWallet
                         const baseSeed = IotaSDK.getSeed(seed, password)
                         const balanceRes = await IotaSDK.IotaObj.addressBalance(IotaSDK.client, address)
